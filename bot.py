@@ -1012,7 +1012,8 @@ async def cmd_start(message: Message, state: FSMContext):
         "👨‍👩‍👧‍👦 *РАБОТА В ГРУППАХ:* добавьте бота в группу и используйте /ask + ваш запрос\n\n"
         "🎨 *ДОПОЛНИТЕЛЬНО:*\n"
         "• Создание Telegram ботов 🤖\n"
-        "• Управление вашими ботами 📋\n\n"
+        "• Управление вашими ботами 📋\n"
+        "• /account посмотреть свой аккаунт👤\n\n"
         "Выберите действие:",
         reply_markup=get_main_keyboard(),
         parse_mode='Markdown'

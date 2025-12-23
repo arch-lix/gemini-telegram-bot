@@ -1,7 +1,5 @@
 {
   "model_limits": {
-    "gpt-4o-mini": 50,
-    "gemini-2.5-flash": 50,
     "gemini-3-pro": 25,
     "gemini-3-pro-preview": 20,
     "deepseek-v3": 50,

@@ -36,6 +36,7 @@ else:
 
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
+API_KEY = os.getenv("API_KEY", "")  # API ключ для доступа к AI
 API_URL = "http://api.onlysq.ru/ai/v2"
 DEFAULT_MODEL = "gemini-3-pro-preview"
 AVAILABLE_MODELS = {
@@ -821,7 +822,7 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 async def get_ai_response(user_id: int, user_message: str) -> str:
     """Получить ответ от AI с историей"""
     headers = {
-        "Authorization": "Bearer openai"
+        "Authorization": f"Bearer {API_KEY}"
     }
     
     # Получаем выбранную модель пользователя
@@ -878,7 +879,7 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
         return None
     
     headers = {
-        "Authorization": "Bearer openai"
+        "Authorization": f"Bearer {API_KEY}"
     }
 
     system_prompt = f"""Создай код Telegram бота на Python с использованием aiogram 3.x.
@@ -1950,7 +1951,7 @@ async def admin_check_api(callback: CallbackQuery):
     
     try:
         # Пробуем отправить тестовый запрос к API
-        headers = {"Authorization": "Bearer openai"}
+        headers = {"Authorization": f"Bearer {API_KEY}"}
         test_data = {
             "model": "gemini-3-pro-preview",
             "request": {

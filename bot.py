@@ -195,9 +195,26 @@ def load_database():
 
 
 def save_database(data):
-    """Сохранить базу данных"""
-    with open(DATABASE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    """Сохранить базу данных с резервным копированием"""
+    # Создаем резервную копию перед сохранением
+    if os.path.exists(DATABASE_FILE):
+        import shutil
+        backup_file = DATABASE_FILE + '.backup'
+        try:
+            shutil.copy2(DATABASE_FILE, backup_file)
+        except Exception as e:
+            logging.error(f"Ошибка создания резервной копии: {e}")
+    
+    # Сохраняем новые данные
+    try:
+        with open(DATABASE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"Ошибка сохранения базы данных: {e}")
+        # Восстанавливаем из резервной копии
+        if os.path.exists(backup_file):
+            shutil.copy2(backup_file, DATABASE_FILE)
+            logging.info("База данных восстановлена из резервной копии")
 
 
 def get_user_bots(user_id: int) -> list:
@@ -276,6 +293,7 @@ def get_user_data(user_id: int, username: str = None):
     """Получить данные пользователя"""
     db = load_database()
     user_id_str = str(user_id)
+    needs_save = False
     
     if user_id_str not in db["users"]:
         # Создаем токены для каждой модели
@@ -292,7 +310,7 @@ def get_user_data(user_id: int, username: str = None):
             "selected_model": DEFAULT_MODEL,
             "bots": []
         }
-        save_database(db)
+        needs_save = True
     
     # Миграция старых данных
     if "requests_left" in db["users"][user_id_str] and "model_tokens" not in db["users"][user_id_str]:
@@ -302,20 +320,25 @@ def get_user_data(user_id: int, username: str = None):
         for model_id in AVAILABLE_MODELS.keys():
             model_tokens[model_id] = old_balance  # Переносим старый баланс на все модели
         db["users"][user_id_str]["model_tokens"] = model_tokens
-        save_database(db)
+        needs_save = True
     
-    # Добавляем недостающие модели
+    # Добавляем недостающие модели (только если их нет)
     if "model_tokens" in db["users"][user_id_str]:
         for model_id in AVAILABLE_MODELS.keys():
             if model_id not in db["users"][user_id_str]["model_tokens"]:
                 db["users"][user_id_str]["model_tokens"][model_id] = get_model_limit(model_id)
-        save_database(db)
+                needs_save = True
     
     if "selected_model" not in db["users"][user_id_str]:
         db["users"][user_id_str]["selected_model"] = DEFAULT_MODEL
-        save_database(db)
+        needs_save = True
+        
     if "bots" not in db["users"][user_id_str]:
         db["users"][user_id_str]["bots"] = []
+        needs_save = True
+    
+    # Сохраняем только если были изменения
+    if needs_save:
         save_database(db)
     
     return db["users"][user_id_str]
@@ -1577,6 +1600,10 @@ async def cmd_account(message: Message):
     # Получаем токены для каждой модели
     model_tokens = user_data.get("model_tokens", {})
     
+    # Получаем количество ботов
+    user_bots = user_data.get("bots", [])
+    bots_count = len(user_bots)
+    
     # Формируем красивый вывод
     text = (
         f"👤 *ID Пользователя:* `{user_id}`\n"
@@ -1596,6 +1623,7 @@ async def cmd_account(message: Message):
         f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
         f"📊 *Всего использовано:* {total_requests}\n"
+        f"🤖 *Созданных ботов:* {bots_count}\n"
         f"⏰ *Лимит обновится через:* {hours} ч. {minutes} мин.\n"
         f"\n"
         f"✅ *Текущая модель:* {model_name}"

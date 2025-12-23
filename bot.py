@@ -1031,7 +1031,10 @@ async def create_bot_start(message: Message, state: FSMContext):
 async def show_my_bots_button(message: Message, state: FSMContext):
     # Сбрасываем любые активные состояния
     await state.clear()
+    
+    logging.info(f"User {message.from_user.id} requested bot list")
     bots = get_user_bots(message.from_user.id)
+    logging.info(f"Found {len(bots)} bots for user {message.from_user.id}")
 
     if not bots:
         await message.answer(

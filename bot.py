@@ -37,7 +37,7 @@ else:
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 API_KEY = os.getenv("API_KEY", "openai")  # API ключ для доступа к AI (базовый ключ: openai)
-API_URL = "https://api.onlysq.ru/ai/v2"  # Используем HTTPS вместо HTTP
+API_URL = "http://api.onlysq.ru/ai/v2"  # Используем HTTPS вместо HTTP
 DEFAULT_MODEL = "gemini-3-pro-preview"
 AVAILABLE_MODELS = {
     "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская рассуждающая модель от Google"},
@@ -2602,4 +2602,5 @@ async def main():
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())

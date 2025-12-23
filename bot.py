@@ -33,7 +33,6 @@ else:
     # На Linux (Railway, Heroku и т.д.) Tesseract устанавливается через apt
     # и доступен в PATH, поэтому явно указывать путь не нужно
     pass
-            break
 
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")

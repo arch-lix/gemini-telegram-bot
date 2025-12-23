@@ -1994,6 +1994,36 @@ async def admin_check_api(callback: CallbackQuery):
     await callback.answer()
 
 
+@dp.callback_query(F.data == "admin_export_db")
+async def admin_export_database(callback: CallbackQuery):
+    """Экспорт базы данных"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ Нет доступа")
+        return
+    
+    await callback.answer("📦 Готовлю файлы...")
+    
+    try:
+        # Отправляем database.json
+        if os.path.exists(DATABASE_FILE):
+            file = FSInputFile(DATABASE_FILE)
+            await callback.message.answer_document(file, caption="📦 database.json")
+        
+        # Отправляем chat_history.json
+        if os.path.exists(DB_FILE):
+            file2 = FSInputFile(DB_FILE)
+            await callback.message.answer_document(file2, caption="📦 chat_history.json")
+        
+        # Отправляем bot_settings.json
+        if os.path.exists(SETTINGS_FILE):
+            file3 = FSInputFile(SETTINGS_FILE)
+            await callback.message.answer_document(file3, caption="📦 bot_settings.json")
+        
+        await callback.message.answer("✅ Экспорт завершен!")
+    except Exception as e:
+        await callback.message.answer(f"❌ Ошибка экспорта: {e}")
+
+
 @dp.callback_query(F.data == "admin_stats")
 async def admin_stats(callback: CallbackQuery):
     """Показать статистику"""
@@ -2062,8 +2092,8 @@ async def admin_users(callback: CallbackQuery):
         text += (
             f"👤 {username_display}\n"
             f"🆔 {user_id}\n"
-            f"📊 Всего токенов: {total_tokens}/{DAILY_LIMIT}\n"
-            f"📈 Всего: {total}\n"
+            f"📊 Всего токенов: {total_tokens}\n"
+            f"📈 Всего запросов: {total}\n"
             f"🕐 Обновление: {last_reset}\n\n"
         )
     

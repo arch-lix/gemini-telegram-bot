@@ -1,0 +1,10 @@
+{
+  "model_limits": {
+    "gemini-3-pro": 25,
+    "gemini-3-pro-preview": 20,
+    "deepseek-v3": 100,
+    "grok-3": 35,
+    "sonar-deep-research": 10
+  },
+  "bot_creation_enabled": true
+}

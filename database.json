@@ -1,0 +1,19 @@
+{
+  "users": {
+    "8087962709": {
+      "username": "nxtalent",
+      "model_tokens": {
+        "gemini-3-pro": 24,
+        "gemini-3-pro-preview": 93,
+        "deepseek-v3": 99,
+        "grok-3": 34,
+        "sonar-deep-research": 10
+      },
+      "total_requests": 21,
+      "last_reset": "2025-12-23T15:39:50.443919",
+      "registration_date": "2025-12-23T15:39:50.443919",
+      "selected_model": "gemini-3-pro-preview",
+      "bots": []
+    }
+  }
+}

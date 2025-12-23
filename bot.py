@@ -2393,7 +2393,8 @@ async def admin_back(callback: CallbackQuery):
         [InlineKeyboardButton(text="⚙️ Лимиты моделей", callback_data="admin_change_limit")],
         [InlineKeyboardButton(text=bot_creation_button_text, callback_data="admin_toggle_bot_creation")],
         [InlineKeyboardButton(text="🌐 Проверить API", callback_data="admin_check_api")],
-        [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")]
+        [InlineKeyboardButton(text="📊 Статистика", callback_data="admin_stats")],
+        [InlineKeyboardButton(text="💾 Экспорт БД", callback_data="admin_export_db")]
     ])
     
     text = (
@@ -2435,9 +2436,22 @@ async def handle_photo(message: Message):
         # Пробуем разные языки
         text = ""
         try:
+            # Проверяем, установлен ли Tesseract
+            import shutil
+            if not shutil.which('tesseract'):
+                raise Exception("Tesseract не установлен")
+            
             # Сначала пробуем русский + английский
             text = pytesseract.image_to_string(image, lang='rus+eng')
-        except:
+        except Exception as e:
+            if "not installed" in str(e).lower() or "tesseract" in str(e).lower():
+                await status_msg.delete()
+                await message.answer(
+                    "❌ OCR временно недоступен\n\n"
+                    "Функция распознавания текста с изображений отключена.\n"
+                    "Пожалуйста, отправьте текст сообщением."
+                )
+                return
             try:
                 # Если не получилось, пробуем только английский
                 text = pytesseract.image_to_string(image, lang='eng')

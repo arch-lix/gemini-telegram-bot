@@ -842,9 +842,18 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
         }
     }
 
+    # Логирование для отладки
+    logging.info(f"API_KEY: {API_KEY}")
+    logging.info(f"Headers: {headers}")
+    logging.info(f"Request data: {send}")
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(API_URL, json=send, headers=headers) as response:
+                response_text = await response.text()
+                logging.info(f"Response status: {response.status}")
+                logging.info(f"Response body: {response_text}")
+                
                 if response.status == 200:
                     data = await response.json()
                     ai_reply = data['choices'][0]['message']['content']
@@ -854,10 +863,10 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
                     return ai_reply
                 else:
-                    return "❌ Ошибка API"
+                    return f"❌ Ошибка API: {response.status} - {response_text}"
     except Exception as e:
         logging.error(f"Ошибка: {e}")
-        return "❌ Ошибка соединения"
+        return f"❌ Ошибка соединения: {str(e)}"
 
 
 async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_model: str) -> str:
@@ -1961,15 +1970,25 @@ async def admin_check_api(callback: CallbackQuery):
             }
         }
         
+        logging.info(f"Testing API with key: {API_KEY}")
+        logging.info(f"Headers: {headers}")
+        
         async with aiohttp.ClientSession() as session:
             async with session.post(API_URL, json=test_data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 status_code = response.status
+                response_text = await response.text()
+                
+                logging.info(f"API Response status: {status_code}")
+                logging.info(f"API Response body: {response_text[:200]}")
                 
                 if status_code == 200:
                     status_text = "✅ API работает нормально"
                     status_emoji = "🟢"
                 elif status_code == 401:
-                    status_text = "⚠️ Ошибка авторизации (401)"
+                    status_text = f"⚠️ Ошибка авторизации (401)\n{response_text[:100]}"
+                    status_emoji = "🟡"
+                elif status_code == 403:
+                    status_text = f"⚠️ Доступ запрещен (403)\n{response_text[:100]}"
                     status_emoji = "🟡"
                 elif status_code == 429:
                     status_text = "⚠️ Превышен лимит запросов (429)"
@@ -1978,7 +1997,7 @@ async def admin_check_api(callback: CallbackQuery):
                     status_text = f"❌ Ошибка сервера ({status_code})"
                     status_emoji = "🔴"
                 else:
-                    status_text = f"⚠️ Неизвестный статус ({status_code})"
+                    status_text = f"⚠️ Неизвестный статус ({status_code})\n{response_text[:100]}"
                     status_emoji = "🟡"
                 
                 response_time = "< 1 сек"
@@ -1995,6 +2014,7 @@ async def admin_check_api(callback: CallbackQuery):
     text = (
         f"{status_emoji} Статус API\n\n"
         f"🌐 URL: {API_URL}\n"
+        f"🔑 API Key: {API_KEY}\n"
         f"📊 Статус: {status_text}\n"
         f"⏱ Время ответа: {response_time}\n"
     )

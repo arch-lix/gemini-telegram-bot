@@ -38,8 +38,10 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 API_KEY = os.getenv("API_KEY", "openai")  # API ключ для доступа к AI (базовый ключ: openai)
 API_URL = "http://api.onlysq.ru/ai/v2"
-DEFAULT_MODEL = "gemini-3-pro-preview"
+DEFAULT_MODEL = "gpt-4o-mini"  # Изменено на более доступную модель
 AVAILABLE_MODELS = {
+    "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и доступная модель от OpenAI"},
+    "gemini-2.5-flash": {"name": "✨ Gemini 2.5 Flash", "cost": 1, "desc": "Быстрая модель от Google"},
     "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская рассуждающая модель от Google"},
     "gemini-3-pro-preview": {"name": "👽 Gemini 3 Pro Preview", "cost": 1, "desc": "Быстрая preview версия Gemini 3 Pro"},
     "deepseek-v3": {"name": "🐼 DeepSeek V3", "cost": 1, "desc": "Текстовая модель от китайского разработчика"},
@@ -822,7 +824,9 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 async def get_ai_response(user_id: int, user_message: str) -> str:
     """Получить ответ от AI с историей"""
     headers = {
-        "Authorization": f"Bearer {API_KEY}"
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
     }
     
     # Получаем выбранную модель пользователя
@@ -844,6 +848,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
     # Логирование для отладки
     logging.info(f"API_KEY: {API_KEY}")
+    logging.info(f"Model: {selected_model}")
     logging.info(f"Headers: {headers}")
     logging.info(f"Request data: {send}")
 
@@ -852,7 +857,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
             async with session.post(API_URL, json=send, headers=headers) as response:
                 response_text = await response.text()
                 logging.info(f"Response status: {response.status}")
-                logging.info(f"Response body: {response_text}")
+                logging.info(f"Response body: {response_text[:500]}")
                 
                 if response.status == 200:
                     data = await response.json()
@@ -863,7 +868,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
 
                     return ai_reply
                 else:
-                    return f"❌ Ошибка API: {response.status} - {response_text}"
+                    return f"❌ Ошибка API: {response.status} - {response_text[:200]}"
     except Exception as e:
         logging.error(f"Ошибка: {e}")
         return f"❌ Ошибка соединения: {str(e)}"
@@ -888,7 +893,9 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
         return None
     
     headers = {
-        "Authorization": f"Bearer {API_KEY}"
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0"
     }
 
     system_prompt = f"""Создай код Telegram бота на Python с использованием aiogram 3.x.
@@ -1960,9 +1967,13 @@ async def admin_check_api(callback: CallbackQuery):
     
     try:
         # Пробуем отправить тестовый запрос к API
-        headers = {"Authorization": f"Bearer {API_KEY}"}
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0"
+        }
         test_data = {
-            "model": "gemini-3-pro-preview",
+            "model": "gpt-4o-mini",  # Используем более доступную модель для теста
             "request": {
                 "messages": [
                     {"role": "user", "content": "test"}

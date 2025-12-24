@@ -3,6 +3,7 @@
     "8087962709": {
       "username": "nxtalent",
       "model_tokens": {
+        "gpt-4o-mini": 50,
         "gemini-3-pro": 24,
         "gemini-3-pro-preview": 93,
         "deepseek-v3": 99,

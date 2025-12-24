@@ -1628,7 +1628,7 @@ async def cmd_account(message: Message):
         f"\n"
         f"✅ *Текущая модель:* {model_name}"
     )
-    
+        
     # Создаем кнопки
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👨‍💼 Техподдержка", url="https://t.me/nxtalent")]

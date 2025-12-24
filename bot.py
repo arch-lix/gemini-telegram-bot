@@ -2609,7 +2609,52 @@ async def handle_message(message: Message, state: FSMContext):
         await message.answer(f"⚠️ Осталось токенов для {model_name}: {requests_left}")
 
 
+def migrate_database():
+    """Миграция базы данных - добавление новых моделей для существующих пользователей"""
+    try:
+        db = load_database()
+        updated = False
+        
+        for user_id, user_data in db.get("users", {}).items():
+            # Проверяем, есть ли model_tokens
+            if "model_tokens" not in user_data:
+                user_data["model_tokens"] = {}
+                updated = True
+            
+            # Добавляем недостающие модели
+            for model_id in AVAILABLE_MODELS.keys():
+                if model_id not in user_data["model_tokens"]:
+                    user_data["model_tokens"][model_id] = get_model_limit(model_id)
+                    updated = True
+                    logging.info(f"Добавлена модель {model_id} для пользователя {user_id}")
+            
+            # Проверяем другие поля
+            if "selected_model" not in user_data:
+                user_data["selected_model"] = DEFAULT_MODEL
+                updated = True
+            
+            if "bots" not in user_data:
+                user_data["bots"] = []
+                updated = True
+            
+            if "total_requests" not in user_data:
+                user_data["total_requests"] = 0
+                updated = True
+        
+        if updated:
+            save_database(db)
+            logging.info("✅ База данных успешно обновлена")
+        else:
+            logging.info("✅ База данных актуальна")
+            
+    except Exception as e:
+        logging.error(f"Ошибка миграции базы данных: {e}")
+
+
 async def main():
+    # Выполняем миграцию базы данных при запуске
+    migrate_database()
+    
     logging.info("🚀 Мультифункциональный бот запущен!")
     await dp.start_polling(bot)
 

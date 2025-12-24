@@ -775,9 +775,6 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 # === РАБОТА С AI ===
 async def get_ai_response(user_id: int, user_message: str) -> str:
     """Получить ответ от AI с историей"""
-    headers = {
-        "Authorization": f"Bearer {API_KEY}"
-    }
     
     # Получаем выбранную модель пользователя
     user_data = get_user_data(user_id)
@@ -799,9 +796,11 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     # Логирование для отладки
     logging.info(f"API_KEY: {API_KEY}")
     logging.info(f"Model: {selected_model}")
-    logging.info(f"Headers: {headers}")
 
     try:
+        # Используем простые заголовки как в документации
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        
         async with aiohttp.ClientSession() as session:
             async with session.post(API_URL, json=send, headers=headers) as response:
                 response_text = await response.text()
@@ -840,10 +839,6 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
     # Используем токен для генерации
     if not use_request(user_id, selected_model):
         return None
-    
-    headers = {
-        "Authorization": f"Bearer {API_KEY}"
-    }
 
     system_prompt = f"""Создай код Telegram бота на Python с использованием aiogram 3.x.
 Требования:
@@ -867,6 +862,8 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
     }
 
     try:
+        headers = {"Authorization": f"Bearer {API_KEY}"}
+        
         async with aiohttp.ClientSession() as session:
             async with session.post(API_URL, json=send, headers=headers) as response:
                 if response.status == 200:
@@ -1921,7 +1918,6 @@ async def admin_check_api(callback: CallbackQuery):
     
     try:
         # Пробуем отправить тестовый запрос к API
-        headers = {"Authorization": f"Bearer {API_KEY}"}
         test_data = {
             "model": "gpt-4o-mini",
             "request": {
@@ -1932,9 +1928,12 @@ async def admin_check_api(callback: CallbackQuery):
         }
         
         logging.info(f"Testing API with key: {API_KEY}")
-        logging.info(f"Headers: {headers}")
+        
+        headers = {"Authorization": f"Bearer {API_KEY}"}
         
         async with aiohttp.ClientSession() as session:
+            logging.info(f"Headers: {headers}")
+            
             async with session.post(API_URL, json=test_data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 status_code = response.status
                 response_text = await response.text()

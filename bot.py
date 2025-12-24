@@ -777,18 +777,8 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 def sync_api_request(url: str, data: dict, headers: dict) -> dict:
     """Синхронный запрос к API используя requests (как в документации)"""
     try:
-        # Добавляем дополнительные заголовки для обхода nginx
-        full_headers = {
-            **headers,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "python-requests/2.31.0",
-            "Accept-Encoding": "gzip, deflate",
-            "Connection": "keep-alive"
-        }
-        
-        # Увеличиваем таймаут до 60 секунд для медленных моделей
-        response = requests.post(url, json=data, headers=full_headers, timeout=60)
+        # Используем только те заголовки, что передали (как в документации)
+        response = requests.post(url, json=data, headers=headers, timeout=60)
         return {
             "status": response.status_code,
             "text": response.text,

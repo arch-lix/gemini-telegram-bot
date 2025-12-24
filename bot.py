@@ -777,11 +777,19 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 def sync_api_request(url: str, data: dict, headers: dict) -> dict:
     """Синхронный запрос к API используя requests (как в документации)"""
     try:
-        response = requests.post(url, json=data, headers=headers, timeout=30)
+        # Увеличиваем таймаут до 60 секунд для медленных моделей
+        response = requests.post(url, json=data, headers=headers, timeout=60)
         return {
             "status": response.status_code,
             "text": response.text,
             "json": response.json() if response.status_code == 200 else None
+        }
+    except requests.exceptions.Timeout:
+        logging.error("API request timeout (60s)")
+        return {
+            "status": 0,
+            "text": "⏱️ Запрос превысил время ожидания (60 сек). Попробуйте другую модель или повторите позже.",
+            "json": None
         }
     except Exception as e:
         logging.error(f"Sync API request error: {e}")
@@ -835,8 +843,11 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
             save_message(user_id, "assistant", ai_reply)
 
             return ai_reply
+        elif result['status'] == 0:
+            # Таймаут или ошибка соединения
+            return result['text']  # Уже содержит понятное сообщение об ошибке
         else:
-            return f"❌ Ошибка API: {result['status']} - {result['text'][:200]}"
+            return f"❌ Ошибка API: {result['status']}\n\nПопробуйте другую модель или повторите позже."
     except Exception as e:
         logging.error(f"Ошибка: {e}")
         return f"❌ Ошибка соединения: {str(e)}"
@@ -1919,7 +1930,7 @@ async def cmd_admin(message: Message):
     ])
     
     text = (
-        "� Адмеин-панель\n\n"
+        "� Админ-панель\n\n"
         f"👥 Всего пользователей: {stats['total_users']}\n"
         f"✅ Активных: {stats['active_users']}\n"
         f"📨 Всего запросов: {stats['total_requests']}\n"

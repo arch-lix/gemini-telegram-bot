@@ -8,6 +8,7 @@ from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 import aiohttp
+import requests
 import json
 import os
 from datetime import datetime, timedelta
@@ -773,6 +774,24 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 
 
 # === РАБОТА С AI ===
+def sync_api_request(url: str, data: dict, headers: dict) -> dict:
+    """Синхронный запрос к API используя requests (как в документации)"""
+    try:
+        response = requests.post(url, json=data, headers=headers, timeout=30)
+        return {
+            "status": response.status_code,
+            "text": response.text,
+            "json": response.json() if response.status_code == 200 else None
+        }
+    except Exception as e:
+        logging.error(f"Sync API request error: {e}")
+        return {
+            "status": 0,
+            "text": str(e),
+            "json": None
+        }
+
+
 async def get_ai_response(user_id: int, user_message: str) -> str:
     """Получить ответ от AI с историей"""
     
@@ -798,25 +817,26 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     logging.info(f"Model: {selected_model}")
 
     try:
-        # Используем простые заголовки как в документации
+        # Используем requests в отдельном потоке (как в документации API)
         headers = {"Authorization": f"Bearer {API_KEY}"}
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(API_URL, json=send, headers=headers) as response:
-                response_text = await response.text()
-                logging.info(f"Response status: {response.status}")
-                logging.info(f"Response body: {response_text[:500]}")
-                
-                if response.status == 200:
-                    data = await response.json()
-                    ai_reply = data['choices'][0]['message']['content']
+        # Выполняем синхронный запрос в executor
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, sync_api_request, API_URL, send, headers)
+        
+        logging.info(f"Response status: {result['status']}")
+        logging.info(f"Response body: {result['text'][:500]}")
+        
+        if result['status'] == 200 and result['json']:
+            data = result['json']
+            ai_reply = data['choices'][0]['message']['content']
 
-                    save_message(user_id, "user", user_message)
-                    save_message(user_id, "assistant", ai_reply)
+            save_message(user_id, "user", user_message)
+            save_message(user_id, "assistant", ai_reply)
 
-                    return ai_reply
-                else:
-                    return f"❌ Ошибка API: {response.status} - {response_text[:200]}"
+            return ai_reply
+        else:
+            return f"❌ Ошибка API: {result['status']} - {result['text'][:200]}"
     except Exception as e:
         logging.error(f"Ошибка: {e}")
         return f"❌ Ошибка соединения: {str(e)}"
@@ -864,18 +884,20 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
     try:
         headers = {"Authorization": f"Bearer {API_KEY}"}
         
-        async with aiohttp.ClientSession() as session:
-            async with session.post(API_URL, json=send, headers=headers) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    code = data['choices'][0]['message']['content']
+        # Используем requests в отдельном потоке
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, sync_api_request, API_URL, send, headers)
+        
+        if result['status'] == 200 and result['json']:
+            data = result['json']
+            code = data['choices'][0]['message']['content']
 
-                    # Очистка кода от markdown
-                    code = code.replace('```python', '').replace('```', '').strip()
+            # Очистка кода от markdown
+            code = code.replace('```python', '').replace('```', '').strip()
 
-                    return code
-                else:
-                    return None
+            return code
+        else:
+            return None
     except Exception as e:
         logging.error(f"Ошибка генерации кода: {e}")
         return None
@@ -1931,36 +1953,36 @@ async def admin_check_api(callback: CallbackQuery):
         
         headers = {"Authorization": f"Bearer {API_KEY}"}
         
-        async with aiohttp.ClientSession() as session:
-            logging.info(f"Headers: {headers}")
-            
-            async with session.post(API_URL, json=test_data, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
-                status_code = response.status
-                response_text = await response.text()
-                
-                logging.info(f"API Response status: {status_code}")
-                logging.info(f"API Response body: {response_text[:200]}")
-                
-                if status_code == 200:
-                    status_text = "✅ API работает нормально"
-                    status_emoji = "🟢"
-                elif status_code == 401:
-                    status_text = f"⚠️ Ошибка авторизации (401)\n{response_text[:100]}"
-                    status_emoji = "🟡"
-                elif status_code == 403:
-                    status_text = f"⚠️ Доступ запрещен (403)\n{response_text[:100]}"
-                    status_emoji = "🟡"
-                elif status_code == 429:
-                    status_text = "⚠️ Превышен лимит запросов (429)"
-                    status_emoji = "🟡"
-                elif status_code >= 500:
-                    status_text = f"❌ Ошибка сервера ({status_code})"
-                    status_emoji = "🔴"
-                else:
-                    status_text = f"⚠️ Неизвестный статус ({status_code})\n{response_text[:100]}"
-                    status_emoji = "🟡"
-                
-                response_time = "< 1 сек"
+        # Используем requests в отдельном потоке
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, sync_api_request, API_URL, test_data, headers)
+        
+        status_code = result['status']
+        response_text = result['text']
+        
+        logging.info(f"API Response status: {status_code}")
+        logging.info(f"API Response body: {response_text[:200]}")
+        
+        if status_code == 200:
+            status_text = "✅ API работает нормально"
+            status_emoji = "🟢"
+        elif status_code == 401:
+            status_text = f"⚠️ Ошибка авторизации (401)\n{response_text[:100]}"
+            status_emoji = "🟡"
+        elif status_code == 403:
+            status_text = f"⚠️ Доступ запрещен (403)\n{response_text[:100]}"
+            status_emoji = "🟡"
+        elif status_code == 429:
+            status_text = "⚠️ Превышен лимит запросов (429)"
+            status_emoji = "🟡"
+        elif status_code >= 500:
+            status_text = f"❌ Ошибка сервера ({status_code})"
+            status_emoji = "🔴"
+        else:
+            status_text = f"⚠️ Неизвестный статус ({status_code})\n{response_text[:100]}"
+            status_emoji = "🟡"
+        
+        response_time = "< 1 сек"
                 
     except asyncio.TimeoutError:
         status_text = "❌ Таймаут (API не отвечает)"

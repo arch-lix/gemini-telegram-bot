@@ -38,8 +38,9 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 API_KEY = os.getenv("API_KEY", "openai")  # API ключ для доступа к AI (базовый ключ: openai)
 API_URL = "http://api.onlysq.ru/ai/v2"
-DEFAULT_MODEL = "deepseek-v3"
+DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
+    "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
     "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская рассуждающая модель от Google"},
     "gemini-3-pro-preview": {"name": "👽 Gemini 3 Pro Preview", "cost": 1, "desc": "Быстрая preview версия Gemini 3 Pro"},
     "deepseek-v3": {"name": "🐼 DeepSeek V3", "cost": 1, "desc": "Текстовая модель от китайского разработчика"},
@@ -1614,6 +1615,7 @@ async def cmd_account(message: Message):
         f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
         f"🤖 *Токены по моделям:*\n"
+        f"  • {AVAILABLE_MODELS['gpt-4o-mini']['name']}: {model_tokens.get('gpt-4o-mini', 0)}\n"
         f"  • {AVAILABLE_MODELS['gemini-3-pro']['name']}: {model_tokens.get('gemini-3-pro', 0)}\n"
         f"  • {AVAILABLE_MODELS['gemini-3-pro-preview']['name']}: {model_tokens.get('gemini-3-pro-preview', 0)}\n"
         f"  • {AVAILABLE_MODELS['deepseek-v3']['name']}: {model_tokens.get('deepseek-v3', 0)}\n"
@@ -1921,7 +1923,7 @@ async def admin_check_api(callback: CallbackQuery):
         # Пробуем отправить тестовый запрос к API
         headers = {"Authorization": f"Bearer {API_KEY}"}
         test_data = {
-            "model": "deepseek-v3",
+            "model": "gpt-4o-mini",
             "request": {
                 "messages": [
                     {"role": "user", "content": "test"}

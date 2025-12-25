@@ -39,7 +39,7 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 # OnlySq API ключ (по умолчанию "openai")
 API_KEY = os.getenv("API_KEY", "openai")  
-API_URL = "https://api.onlysq.ru/ai/v2"  # OnlySq API v2
+API_URL = "http://api.onlysq.ru/ai/v2"  # OnlySq API v2
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
@@ -793,10 +793,13 @@ def make_aiml_request(messages: list, model: str) -> dict:
         }
         
         logging.info(f"Request to {API_URL} with model {model}")
+        logging.info(f"Headers: {headers}")
+        logging.info(f"Data: {json.dumps(data, ensure_ascii=False)}")
         
         response = requests.post(API_URL, json=data, headers=headers, timeout=60)
         
         logging.info(f"Response status: {response.status_code}")
+        logging.info(f"Response text: {response.text[:500]}")
         
         if response.status_code == 200:
             return {"success": True, "data": response.json()}
@@ -865,7 +868,17 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
                     "Попробуйте выбрать другую модель через /model"
                 )
             elif status == 403:
-                return "❌ Ошибка доступа (403 Forbidden)\n\nAPI ключ заблокирован. Обратитесь к администратору."
+                error_details = error_text[:300] if error_text else "Нет деталей ошибки"
+                logging.error(f"403 Forbidden. Response: {error_details}")
+                logging.error(f"Используемый API ключ: {API_KEY}")
+                return (
+                    "❌ Ошибка доступа (403 Forbidden)\n\n"
+                    f"Детали: {error_details}\n\n"
+                    "Возможные причины:\n"
+                    "• Базовый API ключ 'openai' больше не работает\n"
+                    "• Необходимо установить переменную окружения API_KEY с вашим ключом\n"
+                    "• Обратитесь к администратору для получения API ключа"
+                )
             elif status == 401:
                 return "❌ Ошибка авторизации (401 Unauthorized)\n\nAPI ключ недействителен."
             elif status == 500:

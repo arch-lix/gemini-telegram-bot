@@ -37,13 +37,14 @@ else:
 
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
-API_KEY = os.getenv("API_KEY", "openai")  # API ключ для доступа к AI (базовый ключ: openai)
-API_URL = "http://api.onlysq.ru/ai/v2"
+# API ключ "openai" - универсальный ключ для OnlySq API
+API_KEY = os.getenv("API_KEY", "openai")  
+API_URL = "https://api.onlysq.ru/ai/openai/v1/chat/completions"  # OpenAI-совместимый endpoint
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
+    "gpt-5.2-chat": {"name": "🚀 GPT-5.2 Chat", "cost": 1, "desc": "Новейшая модель GPT-5.2 от OpenAI"},
     "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская рассуждающая модель от Google"},
-    "gemini-3-pro-preview": {"name": "👽 Gemini 3 Pro Preview", "cost": 1, "desc": "Быстрая preview версия Gemini 3 Pro"},
     "deepseek-v3": {"name": "🐼 DeepSeek V3", "cost": 1, "desc": "Текстовая модель от китайского разработчика"},
     "grok-3": {"name": "🚀 Grok 3", "cost": 1, "desc": "Продвинутая модель от xAI"},
     "sonar-deep-research": {"name": "🔍 Sonar Deep Research", "cost": 1, "desc": "Модель для глубокого анализа"}
@@ -825,11 +826,10 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
         "content": user_message
     })
 
+    # OpenAI-совместимый формат запроса
     send = {
         "model": selected_model,
-        "request": {
-            "messages": history
-        }
+        "messages": history
     }
 
     # Логирование для отладки
@@ -855,6 +855,24 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
             save_message(user_id, "assistant", ai_reply)
 
             return ai_reply
+        elif result['status'] == 403:
+            # Ошибка доступа - неправильный API ключ
+            return (
+                "❌ Ошибка доступа к API (403 Forbidden)\n\n"
+                "Причины:\n"
+                "• Неправильный API ключ\n"
+                "• API ключ заблокирован\n"
+                "• Требуется обновление ключа\n\n"
+                f"Текущий ключ: {API_KEY}\n\n"
+                "Обратитесь к администратору бота для обновления API ключа."
+            )
+        elif result['status'] == 401:
+            # Ошибка авторизации
+            return (
+                "❌ Ошибка авторизации (401 Unauthorized)\n\n"
+                "API ключ недействителен или отсутствует.\n"
+                "Обратитесь к администратору бота."
+            )
         elif result['status'] == 0:
             # Таймаут или ошибка соединения
             return result['text']  # Уже содержит понятное сообщение об ошибке
@@ -894,14 +912,13 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
 7. Верни ТОЛЬКО код Python без объяснений, без markdown разметки
 8. Код должен начинаться с import и заканчиваться asyncio.run(main())"""
 
+    # OpenAI-совместимый формат запроса
     send = {
         "model": selected_model,
-        "request": {
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Создай бота: {prompt}"}
-            ]
-        }
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Создай бота: {prompt}"}
+        ]
     }
 
     try:
@@ -1658,8 +1675,8 @@ async def cmd_account(message: Message):
         f"\n"
         f"🤖 *Токены по моделям:*\n"
         f"  • {AVAILABLE_MODELS['gpt-4o-mini']['name']}: {model_tokens.get('gpt-4o-mini', 0)}\n"
+        f"  • {AVAILABLE_MODELS['gpt-5.2-chat']['name']}: {model_tokens.get('gpt-5.2-chat', 0)}\n"
         f"  • {AVAILABLE_MODELS['gemini-3-pro']['name']}: {model_tokens.get('gemini-3-pro', 0)}\n"
-        f"  • {AVAILABLE_MODELS['gemini-3-pro-preview']['name']}: {model_tokens.get('gemini-3-pro-preview', 0)}\n"
         f"  • {AVAILABLE_MODELS['deepseek-v3']['name']}: {model_tokens.get('deepseek-v3', 0)}\n"
         f"  • {AVAILABLE_MODELS['grok-3']['name']}: {model_tokens.get('grok-3', 0)}\n"
         f"  • {AVAILABLE_MODELS['sonar-deep-research']['name']}: {model_tokens.get('sonar-deep-research', 0)}\n"
@@ -1685,9 +1702,8 @@ async def cmd_model(message: Message):
     username = message.from_user.username or f"user_{message.from_user.id}"
     user_data = get_user_data(message.from_user.id, username)
     current_model = user_data.get("selected_model", DEFAULT_MODEL)
-    # Получаем токены для текущей модели
+    # Получаем токены для всех моделей
     model_tokens = user_data.get("model_tokens", {})
-    current_balance = model_tokens.get(current_model, 0)
     
     # Создаем кнопки для выбора модели
     buttons = []
@@ -1695,8 +1711,11 @@ async def cmd_model(message: Message):
         model_name = model_info["name"]
         model_cost = model_info.get("cost", 1)
         
+        # Получаем баланс для конкретной модели
+        model_balance = model_tokens.get(model_id, 0)
+        
         # Добавляем замок если недостаточно токенов
-        lock = "🔒 " if current_balance < model_cost else ""
+        lock = "🔒 " if model_balance < model_cost else ""
         emoji = "✅ " if model_id == current_model else lock
         
         buttons.append([InlineKeyboardButton(
@@ -1709,7 +1728,7 @@ async def cmd_model(message: Message):
     await message.answer(
         "🤖 *Выберите модель AI:*\n\n"
         "*⭐️ Gemini 3 Pro* - Флагманская модель от Google DeepMind для сложных задач.\n\n"
-        "*👽 Gemini 3 Flash* - Быстрая модель от Google для чата и текстов.\n\n"
+        "*� GPTi-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
         "*🐼 DeepSeek V3* - Мощная модель для кода и технических задач.\n\n"
         "*🚀 Grok 3* - Модель от xAI с доступом к актуальным данным.\n\n"
         "*🔍 Sonar Deep Research* - Для глубокого анализа и исследований.\n\n"
@@ -1781,7 +1800,7 @@ async def select_model(callback: CallbackQuery):
         await callback.message.edit_text(
             "🤖 *Выберите модель AI:*\n\n"
             "*⭐️ Gemini 3 Pro* - Флагманская модель от Google DeepMind для сложных задач.\n\n"
-            "*👽 Gemini 3 Flash* - Быстрая модель от Google для чата и текстов.\n\n"
+            "*� GPmT-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
             "*🐼 DeepSeek V3* - Мощная модель для кода и технических задач.\n\n"
             "*🚀 Grok 3* - Модель от xAI с доступом к актуальным данным.\n\n"
             "*🔍 Sonar Deep Research* - Для глубокого анализа и исследований.\n\n"
@@ -1963,14 +1982,12 @@ async def admin_check_api(callback: CallbackQuery):
     await callback.message.edit_text("🔄 Проверяю API...")
     
     try:
-        # Пробуем отправить тестовый запрос к API
+        # Пробуем отправить тестовый запрос к API (OpenAI-совместимый формат)
         test_data = {
             "model": "gpt-4o-mini",
-            "request": {
-                "messages": [
-                    {"role": "user", "content": "test"}
-                ]
-            }
+            "messages": [
+                {"role": "user", "content": "test"}
+            ]
         }
         
         logging.info(f"Testing API with key: {API_KEY}")

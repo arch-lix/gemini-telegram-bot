@@ -777,8 +777,17 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 def sync_api_request(url: str, data: dict, headers: dict) -> dict:
     """Синхронный запрос к API используя requests (как в документации)"""
     try:
+        # Логируем что отправляем
+        logging.info(f"Sending request to: {url}")
+        logging.info(f"Headers: {headers}")
+        logging.info(f"Data: {data}")
+        
         # Используем только те заголовки, что передали (как в документации)
         response = requests.post(url, json=data, headers=headers, timeout=60)
+        
+        logging.info(f"Received status: {response.status_code}")
+        logging.info(f"Response headers: {dict(response.headers)}")
+        
         return {
             "status": response.status_code,
             "text": response.text,

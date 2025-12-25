@@ -37,17 +37,17 @@ else:
 
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
-# AIML API ключ
-API_KEY = os.getenv("API_KEY", "c9e713aa689b4fe9b99dc07b8915080c")  
-API_URL = "https://api.aimlapi.com/v1"  # AIML API
+# OnlySq API ключ (по умолчанию "openai")
+API_KEY = os.getenv("API_KEY", "openai")  
+API_URL = "https://api.onlysq.ru/ai/v2"  # OnlySq API v2
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
-    "gpt-5.2-chat": {"name": "🚀 GPT-5.2 Chat", "cost": 1, "desc": "Новейшая модель GPT-5.2 от OpenAI"},
-    "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская рассуждающая модель от Google"},
-    "deepseek-v3": {"name": "🐼 DeepSeek V3", "cost": 1, "desc": "Текстовая модель от китайского разработчика"},
-    "grok-3": {"name": "🚀 Grok 3", "cost": 1, "desc": "Продвинутая модель от xAI"},
-    "sonar-deep-research": {"name": "🔍 Sonar Deep Research", "cost": 1, "desc": "Модель для глубокого анализа"}
+    "gpt-4o": {"name": "🚀 GPT-4o", "cost": 1, "desc": "Мощная модель GPT-4o от OpenAI"},
+    "google/gemini-3-pro-preview": {"name": "⭐️ Gemini 3 Pro Preview", "cost": 1, "desc": "Продвинутая модель от Google"},
+    "deepseek/deepseek-chat-v3.1": {"name": "🐼 DeepSeek Chat v3.1", "cost": 1, "desc": "Новейшая модель от DeepSeek"},
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"name": "🦙 Llama 3.3 70B", "cost": 1, "desc": "Мощная модель от Meta"},
+    "anthropic/claude-opus-4": {"name": "🎭 Claude Opus 4", "cost": 1, "desc": "Флагманская модель от Anthropic"}
 }
 DB_FILE = "chat_history.json"
 DATABASE_FILE = "database.json"  # Объединенная база пользователей и ботов
@@ -474,11 +474,12 @@ def load_settings():
     return {
         "bot_creation_enabled": True,
         "model_limits": {
-            "gemini-3-pro": 30,
-            "gemini-3-pro-preview": 20,
-            "deepseek-v3": 15,
-            "grok-3": 15,
-            "sonar-deep-research": 10
+            "gpt-4o-mini": 50,
+            "gpt-4o": 30,
+            "google/gemini-3-pro-preview": 30,
+            "deepseek/deepseek-chat-v3.1": 100,
+            "meta-llama/Llama-3.3-70B-Instruct-Turbo": 25,
+            "anthropic/claude-opus-4": 20
         }
     }
 
@@ -776,24 +777,24 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 
 # === РАБОТА С AI ===
 def make_aiml_request(messages: list, model: str) -> dict:
-    """Запрос к AIML API"""
+    """Запрос к OnlySq API v2"""
     try:
         headers = {
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         }
         
-        # Формат AIML API (совместим с OpenAI)
+        # Формат OnlySq API v2
         data = {
             "model": model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 2048
+            "request": {
+                "messages": messages
+            }
         }
         
-        logging.info(f"Request to {API_URL}/chat/completions with model {model}")
+        logging.info(f"Request to {API_URL} with model {model}")
         
-        response = requests.post(f"{API_URL}/chat/completions", json=data, headers=headers, timeout=60)
+        response = requests.post(API_URL, json=data, headers=headers, timeout=60)
         
         logging.info(f"Response status: {response.status_code}")
         
@@ -1673,11 +1674,11 @@ async def cmd_account(message: Message):
         f"\n"
         f"🤖 *Токены по моделям:*\n"
         f"  • {AVAILABLE_MODELS['gpt-4o-mini']['name']}: {model_tokens.get('gpt-4o-mini', 0)}\n"
-        f"  • {AVAILABLE_MODELS['gpt-5.2-chat']['name']}: {model_tokens.get('gpt-5.2-chat', 0)}\n"
-        f"  • {AVAILABLE_MODELS['gemini-3-pro']['name']}: {model_tokens.get('gemini-3-pro', 0)}\n"
-        f"  • {AVAILABLE_MODELS['deepseek-v3']['name']}: {model_tokens.get('deepseek-v3', 0)}\n"
-        f"  • {AVAILABLE_MODELS['grok-3']['name']}: {model_tokens.get('grok-3', 0)}\n"
-        f"  • {AVAILABLE_MODELS['sonar-deep-research']['name']}: {model_tokens.get('sonar-deep-research', 0)}\n"
+        f"  • {AVAILABLE_MODELS['gpt-4o']['name']}: {model_tokens.get('gpt-4o', 0)}\n"
+        f"  • {AVAILABLE_MODELS['google/gemini-3-pro-preview']['name']}: {model_tokens.get('google/gemini-3-pro-preview', 0)}\n"
+        f"  • {AVAILABLE_MODELS['deepseek/deepseek-chat-v3.1']['name']}: {model_tokens.get('deepseek/deepseek-chat-v3.1', 0)}\n"
+        f"  • {AVAILABLE_MODELS['meta-llama/Llama-3.3-70B-Instruct-Turbo']['name']}: {model_tokens.get('meta-llama/Llama-3.3-70B-Instruct-Turbo', 0)}\n"
+        f"  • {AVAILABLE_MODELS['anthropic/claude-opus-4']['name']}: {model_tokens.get('anthropic/claude-opus-4', 0)}\n"
         f"\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
@@ -1725,12 +1726,12 @@ async def cmd_model(message: Message):
     
     await message.answer(
         "🤖 *Выберите модель AI:*\n\n"
-        "*⭐️ Gemini 3 Pro* - Флагманская модель от Google DeepMind для сложных задач.\n\n"
-        "*� GPTi-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
-        "*🐼 DeepSeek V3* - Мощная модель для кода и технических задач.\n\n"
-        "*🚀 Grok 3* - Модель от xAI с доступом к актуальным данным.\n\n"
-        "*🔍 Sonar Deep Research* - Для глубокого анализа и исследований.\n\n"
         "*⚡️ GPT-4o Mini* - Быстрая и эффективная модель от OpenAI.\n\n"
+        "*🚀 GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
+        "*⭐️ Gemini 3 Pro Preview* - Продвинутая модель от Google.\n\n"
+        "*🐼 DeepSeek Chat v3.1* - Новейшая модель от DeepSeek.\n\n"
+        "*🦙 Llama 3.3 70B* - Мощная модель от Meta.\n\n"
+        "*🎭 Claude Opus 4* - Флагманская модель от Anthropic.\n\n"
         "Модели с 🔒 недоступны (не хватает токенов).",
         reply_markup=keyboard,
         parse_mode='Markdown'
@@ -1797,11 +1798,12 @@ async def select_model(callback: CallbackQuery):
     try:
         await callback.message.edit_text(
             "🤖 *Выберите модель AI:*\n\n"
-            "*⭐️ Gemini 3 Pro* - Флагманская модель от Google DeepMind для сложных задач.\n\n"
-            "*� GPmT-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
-            "*🐼 DeepSeek V3* - Мощная модель для кода и технических задач.\n\n"
-            "*🚀 Grok 3* - Модель от xAI с доступом к актуальным данным.\n\n"
-            "*🔍 Sonar Deep Research* - Для глубокого анализа и исследований.\n\n"
+            "*⚡️ GPT-4o Mini* - Быстрая и эффективная модель от OpenAI.\n\n"
+            "*🚀 GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
+            "*⭐️ Gemini 3 Pro Preview* - Продвинутая модель от Google.\n\n"
+            "*🐼 DeepSeek Chat v3.1* - Новейшая модель от DeepSeek.\n\n"
+            "*🦙 Llama 3.3 70B* - Мощная модель от Meta.\n\n"
+            "*🎭 Claude Opus 4* - Флагманская модель от Anthropic.\n\n"
             "Модели с 🔒 недоступны (не хватает токенов).\n\n"
             f"✅ *Текущая модель:* {model_name}",
             reply_markup=keyboard,
@@ -1882,11 +1884,11 @@ async def handle_forward(message: Message):
     
     # Сохраняем текст во временное хранилище (можно использовать state или базу)
     # Для простоты сохраним в user_data
-    db = load_database_users()
+    db = load_database()
     user_id_str = str(message.from_user.id)
-    if user_id_str in db:
-        db[user_id_str]["last_forwarded"] = forwarded_text
-        save_database_users(db)
+    if user_id_str in db["users"]:
+        db["users"][user_id_str]["last_forwarded"] = forwarded_text
+        save_database(db)
     
     await message.answer(
         f"📨 Получено сообщение ({len(forwarded_text)} символов)\n\n"
@@ -1901,14 +1903,14 @@ async def process_forward_action(callback: CallbackQuery):
     action = callback.data.replace("fwd_", "")
     
     # Получаем сохраненный текст
-    db = load_database_users()
+    db = load_database()
     user_id_str = str(callback.from_user.id)
     
-    if user_id_str not in db or "last_forwarded" not in db[user_id_str]:
+    if user_id_str not in db["users"] or "last_forwarded" not in db["users"][user_id_str]:
         await callback.answer("❌ Текст не найден. Перешлите сообщение заново.")
         return
     
-    forwarded_text = db[user_id_str]["last_forwarded"]
+    forwarded_text = db["users"][user_id_str]["last_forwarded"]
     
     # Проверяем лимит
     username = callback.from_user.username or f"user_{callback.from_user.id}"
@@ -2525,8 +2527,9 @@ async def handle_photo(message: Message):
                     hours = int(time_left.total_seconds() // 3600)
                     minutes = int((time_left.total_seconds() % 3600) // 60)
                     
+                    model_limit = get_model_limit(selected_model)
                     await message.answer(
-                        f"❌ Вы исчерпали лимит запросов ({DAILY_LIMIT} в день)\n\n"
+                        f"❌ Вы исчерпали лимит запросов ({model_limit} в день)\n\n"
                         f"⏰ Лимит обновится через: {hours}ч {minutes}мин\n\n"
                         f"📝 Распознанный текст:\n{text}"
                     )

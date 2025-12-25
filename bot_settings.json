@@ -1,8 +1,8 @@
 {
   "model_limits": {
     "gpt-4o-mini": 50,
+    "gpt-5.2-chat": 30,
     "gemini-3-pro": 25,
-    "gemini-3-pro-preview": 20,
     "deepseek-v3": 100,
     "grok-3": 35,
     "sonar-deep-research": 10

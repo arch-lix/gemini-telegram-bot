@@ -17,7 +17,6 @@ import signal
 from PIL import Image
 import pytesseract
 import io
-from openai import OpenAI
 
 # Настройка пути к Tesseract
 if os.name == 'nt':  # Windows
@@ -40,7 +39,7 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 # API ключ "openai" - универсальный ключ для OnlySq API
 API_KEY = os.getenv("API_KEY", "openai")  
-API_URL = "https://api.onlysq.ru/ai/openai"  # OpenAI-совместимый endpoint (базовый URL)
+API_URL = "https://api.onlysq.ru/ai/openai/v1/chat/completions"  # Полный URL для chat completions
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
@@ -61,12 +60,6 @@ logging.basicConfig(level=logging.INFO)
 
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
-
-# Создаем OpenAI клиент для работы с API
-openai_client = OpenAI(
-    api_key=API_KEY,
-    base_url=API_URL
-)
 
 # Создаем папку для ботов
 os.makedirs(BOTS_DIR, exist_ok=True)
@@ -782,10 +775,38 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 
 
 # === РАБОТА С AI ===
+def make_openai_request(messages: list, model: str) -> dict:
+    """Простой синхронный запрос к OpenAI-совместимому API"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": model,
+            "messages": messages
+        }
+        
+        logging.info(f"Request to {API_URL} with model {model}")
+        
+        response = requests.post(API_URL, json=data, headers=headers, timeout=60)
+        
+        logging.info(f"Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            return {"success": True, "data": response.json()}
+        else:
+            return {"success": False, "status": response.status_code, "text": response.text}
+            
+    except requests.exceptions.Timeout:
+        return {"success": False, "error": "timeout"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 async def get_ai_response(user_id: int, user_message: str) -> str:
-    """Получить ответ от AI с историей используя OpenAI SDK"""
+    """Получить ответ от AI с историей"""
     
     # Получаем выбранную модель пользователя
     user_data = get_user_data(user_id)
@@ -802,54 +823,42 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     logging.info(f"Model: {selected_model}")
 
     try:
-        # Используем OpenAI SDK в отдельном потоке
-        loop = asyncio.get_event_loop()
-        
-        def make_request():
-            return openai_client.chat.completions.create(
-                model=selected_model,
-                messages=history
-            )
-        
         # Выполняем запрос в executor
-        completion = await loop.run_in_executor(None, make_request)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, make_openai_request, history, selected_model)
         
-        # Получаем ответ
-        ai_reply = completion.choices[0].message.content
-        
-        # Сохраняем в историю
-        save_message(user_id, "user", user_message)
-        save_message(user_id, "assistant", ai_reply)
+        if result.get("success"):
+            data = result["data"]
+            ai_reply = data['choices'][0]['message']['content']
+            
+            # Сохраняем в историю
+            save_message(user_id, "user", user_message)
+            save_message(user_id, "assistant", ai_reply)
 
-        return ai_reply
+            return ai_reply
+        else:
+            # Обрабатываем ошибки
+            if "timeout" in result.get("error", ""):
+                return "⏱️ Запрос превысил время ожидания. Попробуйте другую модель или повторите позже."
+            
+            status = result.get("status", 0)
+            if status == 404:
+                return (
+                    "❌ Ошибка 404: Модель не найдена\n\n"
+                    f"Модель '{selected_model}' недоступна на этом API.\n"
+                    "Попробуйте выбрать другую модель через /model"
+                )
+            elif status == 403:
+                return "❌ Ошибка доступа (403 Forbidden)\n\nAPI ключ заблокирован. Обратитесь к администратору."
+            elif status == 401:
+                return "❌ Ошибка авторизации (401 Unauthorized)\n\nAPI ключ недействителен."
+            else:
+                error_text = result.get("text", result.get("error", "Unknown error"))
+                return f"❌ Ошибка API: {error_text[:200]}\n\nПопробуйте другую модель или повторите позже."
         
     except Exception as e:
-        error_msg = str(e)
-        logging.error(f"Ошибка OpenAI API: {error_msg}")
-        
-        # Обрабатываем разные типы ошибок
-        if "404" in error_msg or "Not Found" in error_msg:
-            return (
-                "❌ Ошибка 404: Модель не найдена\n\n"
-                f"Модель '{selected_model}' недоступна на этом API.\n"
-                "Попробуйте выбрать другую модель через /model"
-            )
-        elif "403" in error_msg or "Forbidden" in error_msg:
-            return (
-                "❌ Ошибка доступа (403 Forbidden)\n\n"
-                "API ключ заблокирован или недействителен.\n"
-                "Обратитесь к администратору бота."
-            )
-        elif "401" in error_msg or "Unauthorized" in error_msg:
-            return (
-                "❌ Ошибка авторизации (401 Unauthorized)\n\n"
-                "API ключ недействителен.\n"
-                "Обратитесь к администратору бота."
-            )
-        elif "timeout" in error_msg.lower():
-            return "⏱️ Запрос превысил время ожидания. Попробуйте другую модель или повторите позже."
-        else:
-            return f"❌ Ошибка API: {error_msg[:200]}\n\nПопробуйте другую модель или повторите позже."
+        logging.error(f"Ошибка: {e}")
+        return f"❌ Ошибка: {str(e)[:200]}"
 
 
 async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_model: str) -> str:
@@ -882,25 +891,24 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
 8. Код должен начинаться с import и заканчиваться asyncio.run(main())"""
 
     try:
-        # Используем OpenAI SDK в отдельном потоке
+        # Выполняем запрос в executor
         loop = asyncio.get_event_loop()
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Создай бота: {prompt}"}
+        ]
+        result = await loop.run_in_executor(None, make_openai_request, messages, selected_model)
         
-        def make_request():
-            return openai_client.chat.completions.create(
-                model=selected_model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Создай бота: {prompt}"}
-                ]
-            )
-        
-        completion = await loop.run_in_executor(None, make_request)
-        code = completion.choices[0].message.content
+        if result.get("success"):
+            data = result["data"]
+            code = data['choices'][0]['message']['content']
 
-        # Очистка кода от markdown
-        code = code.replace('```python', '').replace('```', '').strip()
+            # Очистка кода от markdown
+            code = code.replace('```python', '').replace('```', '').strip()
 
-        return code
+            return code
+        else:
+            return None
     except Exception as e:
         logging.error(f"Ошибка генерации кода: {e}")
         return None
@@ -1945,47 +1953,43 @@ async def admin_check_api(callback: CallbackQuery):
     await callback.message.edit_text("🔄 Проверяю API...")
     
     try:
-        # Пробуем отправить тестовый запрос через OpenAI SDK
+        # Пробуем отправить тестовый запрос
         logging.info(f"Testing API with key: {API_KEY}")
         
         loop = asyncio.get_event_loop()
+        messages = [{"role": "user", "content": "test"}]
+        result = await loop.run_in_executor(None, make_openai_request, messages, "gpt-4o-mini")
         
-        def make_test_request():
-            return openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": "test"}]
-            )
-        
-        completion = await loop.run_in_executor(None, make_test_request)
-        
-        # Если дошли сюда - API работает
-        status_text = "✅ API работает нормально"
-        status_emoji = "🟢"
-        response_time = "< 1 сек"
+        if result.get("success"):
+            status_text = "✅ API работает нормально"
+            status_emoji = "🟢"
+            response_time = "< 1 сек"
+        else:
+            status = result.get("status", 0)
+            if status == 404:
+                status_text = "❌ Ошибка 404: Endpoint не найден"
+                status_emoji = "🔴"
+            elif status == 401:
+                elif status == 401:
+                status_text = f"⚠️ Ошибка авторизации (401)"
+                status_emoji = "🟡"
+            elif status == 403:
+                status_text = f"⚠️ Доступ запрещен (403)"
+                status_emoji = "🟡"
+            elif status == 429:
+                status_text = "⚠️ Превышен лимит запросов (429)"
+                status_emoji = "🟡"
+            else:
+                error_text = result.get("text", result.get("error", "Unknown"))
+                status_text = f"❌ Ошибка: {error_text[:100]}"
+                status_emoji = "🔴"
+            
+            response_time = "N/A"
         
     except Exception as e:
-        error_msg = str(e)
-        logging.error(f"API test error: {error_msg}")
-        
-        if "404" in error_msg or "Not Found" in error_msg:
-            status_text = "❌ Ошибка 404: Endpoint не найден"
-            status_emoji = "🔴"
-        elif "401" in error_msg or "Unauthorized" in error_msg:
-            status_text = f"⚠️ Ошибка авторизации (401)"
-            status_emoji = "🟡"
-        elif "403" in error_msg or "Forbidden" in error_msg:
-            status_text = f"⚠️ Доступ запрещен (403)"
-            status_emoji = "🟡"
-        elif "429" in error_msg:
-            status_text = "⚠️ Превышен лимит запросов (429)"
-            status_emoji = "🟡"
-        elif "timeout" in error_msg.lower():
-            status_text = "❌ Таймаут (API не отвечает)"
-            status_emoji = "🔴"
-        else:
-            status_text = f"❌ Ошибка: {error_msg[:100]}"
-            status_emoji = "🔴"
-        
+        logging.error(f"API test error: {e}")
+        status_text = f"❌ Ошибка: {str(e)[:100]}"
+        status_emoji = "🔴"
         response_time = "N/A"
     
     text = (

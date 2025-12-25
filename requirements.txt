@@ -3,4 +3,3 @@ aiohttp==3.10.11
 requests==2.31.0
 Pillow==11.0.0
 pytesseract==0.3.13
-openai==1.54.0

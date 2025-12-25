@@ -37,17 +37,16 @@ else:
 
 # Настройки
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
-# OnlySq API ключ (по умолчанию "openai")
+# OnlySq API ключ
 API_KEY = os.getenv("API_KEY", "openai")  
 API_URL = "http://api.onlysq.ru/ai/v2"  # OnlySq API v2
-DEFAULT_MODEL = "gpt-4o-mini"
+DEFAULT_MODEL = "gpt-5.2-chat"
 AVAILABLE_MODELS = {
-    "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
-    "gpt-4o": {"name": "🚀 GPT-4o", "cost": 1, "desc": "Мощная модель GPT-4o от OpenAI"},
-    "google/gemini-3-pro-preview": {"name": "⭐️ Gemini 3 Pro Preview", "cost": 1, "desc": "Продвинутая модель от Google"},
-    "deepseek/deepseek-chat-v3.1": {"name": "🐼 DeepSeek Chat v3.1", "cost": 1, "desc": "Новейшая модель от DeepSeek"},
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"name": "🦙 Llama 3.3 70B", "cost": 1, "desc": "Мощная модель от Meta"},
-    "anthropic/claude-opus-4": {"name": "🎭 Claude Opus 4", "cost": 1, "desc": "Флагманская модель от Anthropic"}
+    "gpt-5.2-chat": {"name": "🚀 GPT-5.2 Chat", "cost": 1, "desc": "Новейшая модель GPT-5.2 от OpenAI"},
+    "gpt-4o": {"name": "⚡️ GPT-4o", "cost": 1, "desc": "Мощная модель GPT-4o от OpenAI"},
+    "gemini-3-pro": {"name": "⭐️ Gemini 3 Pro", "cost": 1, "desc": "Флагманская модель от Google"},
+    "deepseek-v3": {"name": "🐼 DeepSeek V3", "cost": 1, "desc": "Мощная модель от DeepSeek"},
+    "grok-3": {"name": "🤖 Grok 3", "cost": 1, "desc": "Продвинутая модель от xAI"}
 }
 DB_FILE = "chat_history.json"
 DATABASE_FILE = "database.json"  # Объединенная база пользователей и ботов
@@ -474,12 +473,11 @@ def load_settings():
     return {
         "bot_creation_enabled": True,
         "model_limits": {
-            "gpt-4o-mini": 50,
-            "gpt-4o": 30,
-            "google/gemini-3-pro-preview": 30,
-            "deepseek/deepseek-chat-v3.1": 100,
-            "meta-llama/Llama-3.3-70B-Instruct-Turbo": 25,
-            "anthropic/claude-opus-4": 20
+            "gpt-5.2-chat": 30,
+            "gpt-4o": 50,
+            "gemini-3-pro": 30,
+            "deepseek-v3": 100,
+            "grok-3": 20
         }
     }
 
@@ -776,7 +774,7 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 
 
 # === РАБОТА С AI ===
-def make_aiml_request(messages: list, model: str) -> dict:
+def make_onlysq_request(messages: list, model: str) -> dict:
     """Запрос к OnlySq API v2"""
     try:
         headers = {
@@ -793,13 +791,10 @@ def make_aiml_request(messages: list, model: str) -> dict:
         }
         
         logging.info(f"Request to {API_URL} with model {model}")
-        logging.info(f"Headers: {headers}")
-        logging.info(f"Data: {json.dumps(data, ensure_ascii=False)}")
         
         response = requests.post(API_URL, json=data, headers=headers, timeout=60)
         
         logging.info(f"Response status: {response.status_code}")
-        logging.info(f"Response text: {response.text[:500]}")
         
         if response.status_code == 200:
             return {"success": True, "data": response.json()}
@@ -832,7 +827,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     try:
         # Выполняем запрос в executor
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, make_aiml_request, history, selected_model)
+        result = await loop.run_in_executor(None, make_onlysq_request, history, selected_model)
         
         if result.get("success"):
             data = result["data"]
@@ -938,7 +933,7 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Создай бота: {prompt}"}
         ]
-        result = await loop.run_in_executor(None, make_aiml_request, messages, selected_model)
+        result = await loop.run_in_executor(None, make_onlysq_request, messages, selected_model)
         
         if result.get("success"):
             data = result["data"]
@@ -1019,11 +1014,11 @@ async def cmd_start(message: Message, state: FSMContext):
         "👋 *Привет!*\n\n"
         "Этот бот даёт вам доступ к лучшим AI-моделям для работы с текстом.\n\n"
         "🤖 *Доступные модели:*\n"
+        "• GPT-5.2 Chat\n"
+        "• GPT-4o\n"
         "• Gemini 3 Pro\n"
-        "• Gemini 3 Flash\n"
         "• DeepSeek V3\n"
-        "• Grok 3\n"
-        "• Sonar Deep Research\n\n"
+        "• Grok 3\n\n"
         "✨ *Чатбот умеет:*\n"
         "• Писать и переводить тексты 📝\n"
         "• Работать с документами 🗂\n"
@@ -1686,12 +1681,11 @@ async def cmd_account(message: Message):
         f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
         f"🤖 *Токены по моделям:*\n"
-        f"  • {AVAILABLE_MODELS['gpt-4o-mini']['name']}: {model_tokens.get('gpt-4o-mini', 0)}\n"
+        f"  • {AVAILABLE_MODELS['gpt-5.2-chat']['name']}: {model_tokens.get('gpt-5.2-chat', 0)}\n"
         f"  • {AVAILABLE_MODELS['gpt-4o']['name']}: {model_tokens.get('gpt-4o', 0)}\n"
-        f"  • {AVAILABLE_MODELS['google/gemini-3-pro-preview']['name']}: {model_tokens.get('google/gemini-3-pro-preview', 0)}\n"
-        f"  • {AVAILABLE_MODELS['deepseek/deepseek-chat-v3.1']['name']}: {model_tokens.get('deepseek/deepseek-chat-v3.1', 0)}\n"
-        f"  • {AVAILABLE_MODELS['meta-llama/Llama-3.3-70B-Instruct-Turbo']['name']}: {model_tokens.get('meta-llama/Llama-3.3-70B-Instruct-Turbo', 0)}\n"
-        f"  • {AVAILABLE_MODELS['anthropic/claude-opus-4']['name']}: {model_tokens.get('anthropic/claude-opus-4', 0)}\n"
+        f"  • {AVAILABLE_MODELS['gemini-3-pro']['name']}: {model_tokens.get('gemini-3-pro', 0)}\n"
+        f"  • {AVAILABLE_MODELS['deepseek-v3']['name']}: {model_tokens.get('deepseek-v3', 0)}\n"
+        f"  • {AVAILABLE_MODELS['grok-3']['name']}: {model_tokens.get('grok-3', 0)}\n"
         f"\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"\n"
@@ -1739,12 +1733,11 @@ async def cmd_model(message: Message):
     
     await message.answer(
         "🤖 *Выберите модель AI:*\n\n"
-        "*⚡️ GPT-4o Mini* - Быстрая и эффективная модель от OpenAI.\n\n"
-        "*🚀 GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
-        "*⭐️ Gemini 3 Pro Preview* - Продвинутая модель от Google.\n\n"
-        "*🐼 DeepSeek Chat v3.1* - Новейшая модель от DeepSeek.\n\n"
-        "*🦙 Llama 3.3 70B* - Мощная модель от Meta.\n\n"
-        "*🎭 Claude Opus 4* - Флагманская модель от Anthropic.\n\n"
+        "*🚀 GPT-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
+        "*⚡️ GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
+        "*⭐️ Gemini 3 Pro* - Флагманская модель от Google.\n\n"
+        "*🐼 DeepSeek V3* - Мощная модель от DeepSeek.\n\n"
+        "*🤖 Grok 3* - Продвинутая модель от xAI.\n\n"
         "Модели с 🔒 недоступны (не хватает токенов).",
         reply_markup=keyboard,
         parse_mode='Markdown'
@@ -1811,12 +1804,11 @@ async def select_model(callback: CallbackQuery):
     try:
         await callback.message.edit_text(
             "🤖 *Выберите модель AI:*\n\n"
-            "*⚡️ GPT-4o Mini* - Быстрая и эффективная модель от OpenAI.\n\n"
-            "*🚀 GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
-            "*⭐️ Gemini 3 Pro Preview* - Продвинутая модель от Google.\n\n"
-            "*🐼 DeepSeek Chat v3.1* - Новейшая модель от DeepSeek.\n\n"
-            "*🦙 Llama 3.3 70B* - Мощная модель от Meta.\n\n"
-            "*🎭 Claude Opus 4* - Флагманская модель от Anthropic.\n\n"
+            "*🚀 GPT-5.2 Chat* - Новейшая модель GPT-5.2 от OpenAI.\n\n"
+            "*⚡️ GPT-4o* - Мощная модель GPT-4o от OpenAI.\n\n"
+            "*⭐️ Gemini 3 Pro* - Флагманская модель от Google.\n\n"
+            "*🐼 DeepSeek V3* - Мощная модель от DeepSeek.\n\n"
+            "*🤖 Grok 3* - Продвинутая модель от xAI.\n\n"
             "Модели с 🔒 недоступны (не хватает токенов).\n\n"
             f"✅ *Текущая модель:* {model_name}",
             reply_markup=keyboard,
@@ -2000,7 +1992,7 @@ async def admin_check_api(callback: CallbackQuery):
         
         loop = asyncio.get_event_loop()
         messages = [{"role": "user", "content": "test"}]
-        result = await loop.run_in_executor(None, make_aiml_request, messages, "gpt-4o-mini")
+        result = await loop.run_in_executor(None, make_onlysq_request, messages, "gpt-4o-mini")
         
         if result.get("success"):
             status_text = "✅ API работает нормально"

@@ -39,7 +39,7 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 # API ключ "openai" - универсальный ключ для OnlySq API
 API_KEY = os.getenv("API_KEY", "openai")  
-API_URL = "https://api.onlysq.ru/ai/openai/v1/chat/completions"  # Полный URL для chat completions
+API_URL = "https://api.onlysq.ru/ai/v2"  # OnlySq API v2
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
@@ -775,17 +775,20 @@ async def send_long_message(message: Message, text: str, force_file: bool = Fals
 
 
 # === РАБОТА С AI ===
-def make_openai_request(messages: list, model: str) -> dict:
-    """Простой синхронный запрос к OpenAI-совместимому API"""
+def make_onlysq_request(messages: list, model: str) -> dict:
+    """Запрос к OnlySq API v2"""
     try:
         headers = {
             "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         }
         
+        # Формат OnlySq API v2
         data = {
             "model": model,
-            "messages": messages
+            "request": {
+                "messages": messages
+            }
         }
         
         logging.info(f"Request to {API_URL} with model {model}")
@@ -825,7 +828,7 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
     try:
         # Выполняем запрос в executor
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, make_openai_request, history, selected_model)
+        result = await loop.run_in_executor(None, make_onlysq_request, history, selected_model)
         
         if result.get("success"):
             data = result["data"]
@@ -897,7 +900,7 @@ async def generate_bot_code(prompt: str, bot_token: str, user_id: int, selected_
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Создай бота: {prompt}"}
         ]
-        result = await loop.run_in_executor(None, make_openai_request, messages, selected_model)
+        result = await loop.run_in_executor(None, make_onlysq_request, messages, selected_model)
         
         if result.get("success"):
             data = result["data"]
@@ -1958,7 +1961,7 @@ async def admin_check_api(callback: CallbackQuery):
         
         loop = asyncio.get_event_loop()
         messages = [{"role": "user", "content": "test"}]
-        result = await loop.run_in_executor(None, make_openai_request, messages, "gpt-4o-mini")
+        result = await loop.run_in_executor(None, make_onlysq_request, messages, "gpt-4o-mini")
         
         if result.get("success"):
             status_text = "✅ API работает нормально"

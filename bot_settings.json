@@ -1,11 +1,10 @@
 {
   "model_limits": {
-    "gpt-4o-mini": 50,
     "gpt-5.2-chat": 30,
-    "gemini-3-pro": 25,
+    "gpt-4o": 50,
+    "gemini-3-pro": 30,
     "deepseek-v3": 100,
-    "grok-3": 35,
-    "sonar-deep-research": 10
+    "grok-3": 20
   },
   "bot_creation_enabled": true
 }

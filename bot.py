@@ -39,7 +39,7 @@ else:
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8157269355:AAFOCDNdApPolAeBBjbY1An-OfYIokLvfKc")
 # API ключ "openai" - универсальный ключ для OnlySq API
 API_KEY = os.getenv("API_KEY", "openai")  
-API_URL = "https://api.onlysq.ru/ai/v2"  # OnlySq API v2
+API_URL = "http://api.onlysq.ru/ai/v2"  # OnlySq API v2 (HTTP, не HTTPS!)
 DEFAULT_MODEL = "gpt-4o-mini"
 AVAILABLE_MODELS = {
     "gpt-4o-mini": {"name": "⚡️ GPT-4o Mini", "cost": 1, "desc": "Быстрая и эффективная модель от OpenAI"},
@@ -845,7 +845,19 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
                 return "⏱️ Запрос превысил время ожидания. Попробуйте другую модель или повторите позже."
             
             status = result.get("status", 0)
-            if status == 404:
+            error_text = result.get("text", result.get("error", "Unknown error"))
+            
+            # Проверяем на ошибку квоты (429)
+            if status == 429 or "429" in error_text or "quota" in error_text.lower() or "exceeded" in error_text.lower():
+                return (
+                    "⚠️ Превышен лимит запросов (429)\n\n"
+                    "Бесплатный API ключ 'openai' исчерпал квоту.\n\n"
+                    "Решения:\n"
+                    "• Подождите некоторое время\n"
+                    "• Попробуйте другую модель\n"
+                    "• Обратитесь к администратору для получения собственного API ключа"
+                )
+            elif status == 404:
                 return (
                     "❌ Ошибка 404: Модель не найдена\n\n"
                     f"Модель '{selected_model}' недоступна на этом API.\n"
@@ -855,8 +867,20 @@ async def get_ai_response(user_id: int, user_message: str) -> str:
                 return "❌ Ошибка доступа (403 Forbidden)\n\nAPI ключ заблокирован. Обратитесь к администратору."
             elif status == 401:
                 return "❌ Ошибка авторизации (401 Unauthorized)\n\nAPI ключ недействителен."
+            elif status == 500:
+                # Проверяем, не связана ли ошибка 500 с квотой
+                if "429" in error_text or "quota" in error_text.lower():
+                    return (
+                        "⚠️ Превышен лимит запросов\n\n"
+                        "Бесплатный API ключ 'openai' исчерпал квоту.\n\n"
+                        "Решения:\n"
+                        "• Подождите некоторое время\n"
+                        "• Попробуйте другую модель\n"
+                        "• Обратитесь к администратору для получения собственного API ключа"
+                    )
+                else:
+                    return f"❌ Ошибка сервера (500)\n\n{error_text[:200]}\n\nПопробуйте позже."
             else:
-                error_text = result.get("text", result.get("error", "Unknown error"))
                 return f"❌ Ошибка API: {error_text[:200]}\n\nПопробуйте другую модель или повторите позже."
         
     except Exception as e:
@@ -1969,6 +1993,8 @@ async def admin_check_api(callback: CallbackQuery):
             response_time = "< 1 сек"
         else:
             status = result.get("status", 0)
+            error_text = result.get("text", result.get("error", "Unknown"))
+            
             if status == 404:
                 status_text = "❌ Ошибка 404: Endpoint не найден"
                 status_emoji = "🔴"
@@ -1978,11 +2004,17 @@ async def admin_check_api(callback: CallbackQuery):
             elif status == 403:
                 status_text = f"⚠️ Доступ запрещен (403)"
                 status_emoji = "🟡"
-            elif status == 429:
-                status_text = "⚠️ Превышен лимит запросов (429)"
+            elif status == 429 or "429" in error_text or "quota" in error_text.lower():
+                status_text = "⚠️ Превышен лимит запросов (429)\nБесплатный ключ исчерпал квоту"
                 status_emoji = "🟡"
+            elif status == 500:
+                if "429" in error_text or "quota" in error_text.lower():
+                    status_text = "⚠️ Превышен лимит (квота исчерпана)"
+                    status_emoji = "🟡"
+                else:
+                    status_text = f"❌ Ошибка сервера (500)"
+                    status_emoji = "🔴"
             else:
-                error_text = result.get("text", result.get("error", "Unknown"))
                 status_text = f"❌ Ошибка: {error_text[:100]}"
                 status_emoji = "🔴"
             

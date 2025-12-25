@@ -1970,7 +1970,6 @@ async def admin_check_api(callback: CallbackQuery):
                 status_text = "❌ Ошибка 404: Endpoint не найден"
                 status_emoji = "🔴"
             elif status == 401:
-                elif status == 401:
                 status_text = f"⚠️ Ошибка авторизации (401)"
                 status_emoji = "🟡"
             elif status == 403:

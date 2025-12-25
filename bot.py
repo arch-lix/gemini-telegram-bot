@@ -782,8 +782,11 @@ def sync_api_request(url: str, data: dict, headers: dict) -> dict:
         logging.info(f"Headers: {headers}")
         logging.info(f"Data: {data}")
         
-        # Используем только те заголовки, что передали (как в документации)
-        response = requests.post(url, json=data, headers=headers, timeout=60)
+        # Добавляем Content-Type явно
+        headers_with_content_type = {**headers, "Content-Type": "application/json"}
+        
+        # Используем json= для автоматической сериализации
+        response = requests.post(url, json=data, headers=headers_with_content_type, timeout=60)
         
         logging.info(f"Received status: {response.status_code}")
         logging.info(f"Response headers: {dict(response.headers)}")

@@ -1992,7 +1992,7 @@ async def admin_check_api(callback: CallbackQuery):
         
         loop = asyncio.get_event_loop()
         messages = [{"role": "user", "content": "test"}]
-        result = await loop.run_in_executor(None, make_onlysq_request, messages, "gpt-4o-mini")
+        result = await loop.run_in_executor(None, make_onlysq_request, messages, "gpt-5.2-chat")
         
         if result.get("success"):
             status_text = "✅ API работает нормально"
